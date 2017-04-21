@@ -1,0 +1,59 @@
+#!/bin/sh
+
+os=$(cat "$__global/explorer/os")
+if [ ! "$os" = "debian" ]
+then
+    echo "OS $os is currently not supported." >&2
+    exit 1
+fi
+os_version=$(cat "$__global/explorer/os_version")
+case "$os_version" in
+    8*)
+        :
+    ;;
+    *)
+        echo "Unsupported version $os_version of $os." >&2
+        exit 1
+    ;;
+esac
+nextcloud_dir="/$__object_id"
+if [ ! "$nextcloud_dir" ]
+then
+    echo "Missing nextcloud directory (object_id)." >&2
+    exit 1
+fi
+state=$(cat "$__object/parameter/state")
+exists=$(cat "$__object/explorer/exists")
+
+case "$state" in
+    present)
+        [ "$exists" = "yes" ] && exit 0
+
+        nextcloud_url=$(cat "$__object/parameter/nextcloud-uri")
+        if [ ! "${nextcloud_url}" ]
+        then
+            echo "Missing nextcloud uri (parameter/nextcloud-uri)" >&2
+            exit 1
+        fi
+        nextcloud_version=$(cat "$__object/parameter/nextcloud-version")
+        if [ ! "${nextcloud_version}" ]
+        then
+            echo "Missing nextcloud version (parameter/nextcloud-version)" >&2
+            exit 1
+        fi
+        nextcloud_uri="${nextcloud_url}${nextcloud_version}.tar.bz2"
+        cat <<eof
+curl -LO ${nextcloud_uri} -o ${nextcloud_dir}/nextcloud.tar.bz2
+tar -C /var/www -xvjf ${nextcloud_dir}/nextcloud.tar.bz2
+rm ${nextcloud_dir}/nextcloud.tar.bz2
+bash ${__object}/files/nextcloud.sh
+eof
+    ;;
+    absent)
+        # all done in manifest
+        :
+    ;;
+    *)
+        echo "Unknown state: $state" >&2
+        exit 1
+esac

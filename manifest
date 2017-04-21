@@ -1,0 +1,87 @@
+#!/bin/sh
+
+os=$(cat "$__global/explorer/os")
+if [ ! "$os" = "debian" ]
+then
+    echo "OS $os is currently not supported." >&2
+    exit 1
+fi
+os_version=$(cat "$__global/explorer/os_version")
+case "$os_version" in
+    8*)
+        :
+    ;;
+    *)
+        echo "Unsupported version $os_version of $os." >&2
+        exit 1
+    ;;
+esac
+
+nextcloud_dir="/$__object_id"
+if [ ! "$nextcloud_dir" ]
+then
+    echo "Missing nextcloud directory (object_id)." >&2
+    exit 1
+fi
+state=$(cat "$__object/parameter/state")
+exists=$(cat "$__object/explorer/exists")
+case "$state" in
+    present)
+        if [ "$exists" = "yes" ]
+        then
+           echo "${nextcloud_dir} already exists" >&2
+           exit 0
+        fi
+
+        # Setup LAMP 
+        __package apach2 --state=present
+
+        # Get server name or ip from parameters
+        server_name=$(cat "$__object/parameter/server-name")
+        __file /etc/systemd/system/nextcloud.service --owner root \
+            --group root \
+            --mode 755 --source - << EOF 
+        ServerName ${server_name}
+EOF
+
+        # Config Firewall
+
+        # Setup mysql
+        __package mysql-server --state=present
+        mysql_password=$(cat "$__object/parameter/mysql-password")
+        __mysql_database "nextcloud" --name "nextcloud" --user "nextcloud" \
+                                     --password "${mysql_password}"
+
+        # Install PHP 
+
+        for package in php libapache2-mod-php php-mcrypt php-mysql 
+            do __package $package --state=present
+        done
+
+        # Install additional php packages
+        for package in php-bz2 php-curl php-gd php-imagick php-intl php-mbstring php-xml php-zip
+            do __package $package --state=present
+        done
+
+
+        require="__package/apache2" __file /etc/apache2/sites-available/nextcloud.conf
+			--owner root \
+            --group root \
+            --mode 755 --source "$__type/files/nextcloud.apache" \
+            --state exists
+
+		# Enable nextcloud site
+		__process a2ensite nextcloud
+		# Enable mod_rewrite (required by nextcloud)
+		__process a2enmod rewrite
+
+	absent)
+		# TODO: 
+        if [ "$exists" ]
+        then
+        fi
+    ;;
+    *)
+        echo "Unknown state: $state" >&2
+        exit 1
+esac
