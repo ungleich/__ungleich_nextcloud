@@ -33,52 +33,33 @@ case "$state" in
            exit 0
         fi
 
-        # Setup LAMP 
-        __package apach2 --state=present
+		__package php7.0 --state=present
 
-        # Get server name or ip from parameters
-        server_name=$(cat "$__object/parameter/server-name")
-        __file /etc/systemd/system/nextcloud.service --owner root \
-            --group root \
-            --mode 755 --source - << EOF 
-        ServerName ${server_name}
-EOF
-
-        # Config Firewall
-
-        # Setup mysql
-        __package mysql-server --state=present
-        mysql_password=$(cat "$__object/parameter/mysql-password")
-        __mysql_database "nextcloud" --name "nextcloud" --user "nextcloud" \
-                                     --password "${mysql_password}"
-
-        # Install PHP 
-
-        for package in php libapache2-mod-php php-mcrypt php-mysql 
-            do __package $package --state=present
+		# Install PHP
+		for package in php7.0-gd php7.0-json php7.0-pgsql php7.0-curl php7.0-mbstring \
+					   php7.0-intl php7.0-mcrypt php-imagick php7.0-xml php7.0-zip php7.0-bz2
+            do require="__package php7.0" __package $package --state=present
         done
 
-        # Install additional php packages
-        for package in php-bz2 php-curl php-gd php-imagick php-intl php-mbstring php-xml php-zip
-            do __package $package --state=present
-        done
-
-
-        require="__package/apache2" __file /etc/apache2/sites-available/nextcloud.conf
-			--owner root \
-            --group root \
-            --mode 755 --source "$__type/files/nextcloud.apache" \
+		# Nginx
+		__package nginx --state=present
+		require="__package nginx" __file /etc/nginx/sites-enabled/nextcloud --owner www-data \
+            --group www-data \
+            --mode 755 --source "$__type/files/nextcloud.nginx" \
             --state exists
 
-		# Enable nextcloud site
-		__process a2ensite nextcloud
-		# Enable mod_rewrite (required by nextcloud)
-		__process a2enmod rewrite
+        # Postgres
+        __package postgresql --state=present
+        require="__package postgresql" __postgres_database nextcloud --owner nextcloud
+        require="__package/postgresql" __start_on_boot postgres
 
 	absent)
-		# TODO: 
         if [ "$exists" ]
         then
+			__process postgres --state absent \
+                --stop "service postgres stop" \
+                --name ".*postgres .*"
+            __start_on_boot postgres --state absent
         fi
     ;;
     *)
