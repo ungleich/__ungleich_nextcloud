@@ -11,6 +11,9 @@ case "$os_version" in
     8*)
         :
     ;;
+    9*)
+        :
+    ;;
     *)
         echo "Unsupported version $os_version of $os." >&2
         exit 1
