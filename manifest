@@ -28,11 +28,11 @@ for package in php7.0 php7.0-gd php7.0-json php7.0-pgsql php7.0-curl php7.0-mbst
 done
 
 # Nginx
-require="__package nginx" __file /etc/nginx/sites-enabled/nextcloud --owner www-data \
+require="__package/nginx" __file /etc/nginx/sites-enabled/nextcloud --owner www-data \
     --group www-data \
     --mode 755 --source "$__type/files/nextcloud.nginx" \
     --state exists
 
 # Postgres
-require="__package postgresql" __postgres_database nextcloud --owner nextcloud
+require="__package/postgresql" __postgres_database nextcloud --owner nextcloud
 require="__package/postgresql" __start_on_boot postgres

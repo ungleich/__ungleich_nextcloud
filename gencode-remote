@@ -31,7 +31,7 @@ then
     echo "Missing nextcloud version (parameter/version)" >&2
     exit 1
 fi
-nextcloud_uri="${nextcloud_url}${nextcloud_version}.tar.bz2"
+nextcloud_uri="${nextcloud_url}-${nextcloud_version}.tar.bz2"
 # Download tar ball extract and apply script
 # TODO: verify shasum of tar ball
 curl -LO ${nextcloud_uri} -o ${nextcloud_dir}/nextcloud.tar.bz2
