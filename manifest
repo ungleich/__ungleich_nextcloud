@@ -20,52 +20,19 @@ case "$os_version" in
     ;;
 esac
 
-nextcloud_dir="/$__object_id"
-if [ ! "$nextcloud_dir" ]
-then
-    echo "Missing nextcloud directory (object_id)." >&2
-    exit 1
-fi
-state=$(cat "$__object/parameter/state")
-exists=$(cat "$__object/explorer/exists")
-case "$state" in
-    present)
-        if [ "$exists" = "yes" ]
-        then
-           echo "${nextcloud_dir} already exists" >&2
-           exit 0
-        fi
+# Install packages
+for package in php7.0 php7.0-gd php7.0-json php7.0-pgsql php7.0-curl php7.0-mbstring \
+			   php7.0-intl php7.0-mcrypt php-imagick php7.0-xml php7.0-zip php7.0-bz2 \
+               postgresql nginx
+    do __package $package --state=present
+done
 
-		__package php7.0 --state=present
+# Nginx
+require="__package nginx" __file /etc/nginx/sites-enabled/nextcloud --owner www-data \
+    --group www-data \
+    --mode 755 --source "$__type/files/nextcloud.nginx" \
+    --state exists
 
-		# Install PHP
-		for package in php7.0-gd php7.0-json php7.0-pgsql php7.0-curl php7.0-mbstring \
-					   php7.0-intl php7.0-mcrypt php-imagick php7.0-xml php7.0-zip php7.0-bz2
-            do require="__package php7.0" __package $package --state=present
-        done
-
-		# Nginx
-		__package nginx --state=present
-		require="__package nginx" __file /etc/nginx/sites-enabled/nextcloud --owner www-data \
-            --group www-data \
-            --mode 755 --source "$__type/files/nextcloud.nginx" \
-            --state exists
-
-        # Postgres
-        __package postgresql --state=present
-        require="__package postgresql" __postgres_database nextcloud --owner nextcloud
-        require="__package/postgresql" __start_on_boot postgres
-
-	absent)
-        if [ "$exists" ]
-        then
-			__process postgres --state absent \
-                --stop "service postgres stop" \
-                --name ".*postgres .*"
-            __start_on_boot postgres --state absent
-        fi
-    ;;
-    *)
-        echo "Unknown state: $state" >&2
-        exit 1
-esac
+# Postgres
+require="__package postgresql" __postgres_database nextcloud --owner nextcloud
+require="__package/postgresql" __start_on_boot postgres
