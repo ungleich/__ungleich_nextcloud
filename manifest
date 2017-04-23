@@ -9,9 +9,11 @@ fi
 os_version=$(cat "$__global/explorer/os_version")
 case "$os_version" in
     8*)
+        php=php5
         :
     ;;
     9*)
+        php=php
         :
     ;;
     *)
@@ -21,7 +23,7 @@ case "$os_version" in
 esac
 
 # Install packages
-for package in php php-gd php-json php-pgsql php-curl php-mbstring \
+for package in ${php} php-gd php-json php-pgsql php-curl php-mbstring \
 			   php-intl php-mcrypt php-imagick php-xml php-zip php-bz2 \
                postgresql nginx
     do __package $package --state=present
