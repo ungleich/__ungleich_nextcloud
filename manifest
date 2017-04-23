@@ -21,8 +21,8 @@ case "$os_version" in
 esac
 
 # Install packages
-for package in php7.0 php7.0-gd php7.0-json php7.0-pgsql php7.0-curl php7.0-mbstring \
-			   php7.0-intl php7.0-mcrypt php-imagick php7.0-xml php7.0-zip php7.0-bz2 \
+for package in php php-gd php-json php-pgsql php-curl php-mbstring \
+			   php-intl php-mcrypt php-imagick php-xml php-zip php-bz2 \
                postgresql nginx
     do __package $package --state=present
 done

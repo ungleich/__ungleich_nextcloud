@@ -37,4 +37,4 @@ nextcloud_uri="${nextcloud_url}-${nextcloud_version}.tar.bz2"
 curl -LO ${nextcloud_uri} -o ${nextcloud_dir}/nextcloud.tar.bz2
 tar -C /var/www -xvjf ${nextcloud_dir}/nextcloud.tar.bz2
 rm ${nextcloud_dir}/nextcloud.tar.bz2
-bash ${__object}/files/nextcloud.sh
+bash ${__type}/files/nextcloud.sh
