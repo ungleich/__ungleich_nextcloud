@@ -23,17 +23,15 @@ case "$os_version" in
 esac
 
 # Install packages
-for package in ${php} php-gd php-json php-pgsql php-curl php-mbstring \
-			   php-intl php-mcrypt php-imagick php-xml php-zip php-bz2 \
+for package in ${php} ${php}-gd ${php}-json ${php}-pgsql ${php}-curl \
+			   ${php}-intl ${php}-mcrypt ${php}-imagick \
                postgresql nginx
     do __package $package --state=present
 done
 
 # Nginx
 require="__package/nginx" __file /etc/nginx/sites-enabled/nextcloud --owner www-data \
-    --group www-data \
-    --mode 755 --source "$__type/files/nextcloud.nginx" \
-    --state exists
+    --group www-data --mode 755 --source "$__type/files/nextcloud.nginx"
 
 # Postgres
 require="__package/postgresql" __postgres_database nextcloud --owner nextcloud
