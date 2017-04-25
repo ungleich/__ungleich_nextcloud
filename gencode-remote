@@ -19,22 +19,17 @@ case "$os_version" in
         exit 1
     ;;
 esac
-nextcloud_url=$(cat "$__object/parameter/url")
-if [ ! "${nextcloud_url}" ]
-then
-    echo "Missing nextcloud uri (parameter/url)" >&2
-    exit 1
-fi
 nextcloud_version=$(cat "$__object/parameter/version")
 if [ ! "${nextcloud_version}" ]
 then
     echo "Missing nextcloud version (parameter/version)" >&2
     exit 1
 fi
-nextcloud_uri="${nextcloud_url}-${nextcloud_version}.tar.bz2"
-# Download tar ball extract and apply script
-# TODO: verify shasum of tar ball
-curl -LO ${nextcloud_uri} -o /tmp/nextcloud.tar.bz2
+# TODO check if url parameter is set
+nextcloud_uri="https://download.nextcloud.com/server/releases/nextcloud-${nextcloud_version}.tar.bz2"
+# TODO check shasum of tar ball 
+cat <<eof
+curl -s -L ${nextcloud_uri} -o /tmp/nextcloud.tar.bz2
 tar -C /var/www -xvjf /tmp/nextcloud.tar.bz2
-rm /tmp/nextcloud.tar.bz2
-bash "$__type/files/nextcloud.sh"
+rm -f /tmp/nextcloud.tar.bz2
+eof
