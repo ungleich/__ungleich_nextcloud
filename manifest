@@ -25,7 +25,7 @@ esac
 # Install packages
 for package in ${php} ${php}-gd ${php}-json ${php}-pgsql ${php}-curl \
 			   ${php}-intl ${php}-mcrypt ${php}-imagick \
-               postgresql nginx
+               postgresql nginx curl
     do __package $package --state=present
 done
 
@@ -35,4 +35,4 @@ require="__package/nginx" __file /etc/nginx/sites-enabled/nextcloud --owner www-
 
 # Postgres
 require="__package/postgresql" __postgres_database nextcloud --owner nextcloud
-require="__package/postgresql" __start_on_boot postgres
+require="__package/postgresql" __postgres_role nextcloud --login --createdb

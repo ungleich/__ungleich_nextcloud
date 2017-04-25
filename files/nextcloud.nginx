@@ -14,8 +14,8 @@ server {
     listen 443 ssl;
     server_name cloud.ungleich.ch;
 
-    ssl_certificate /etc/ssl/nginx/cloud.example.com.crt;
-    ssl_certificate_key /etc/ssl/nginx/cloud.example.com.key;
+    ssl_certificate /etc/ssl/certs/star.ungleich.ch.crt;
+    ssl_certificate_key /etc/ssl/private/star.ungleich.ch.key;
 
     # Add headers to serve security related headers
     # Before enabling Strict-Transport-Security headers please read into this
