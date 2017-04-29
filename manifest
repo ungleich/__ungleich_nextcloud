@@ -9,11 +9,6 @@ fi
 os_version=$(cat "$__global/explorer/os_version")
 case "$os_version" in
     8*)
-        php=php5
-        :
-    ;;
-    9*)
-        php=php
         :
     ;;
     *)
@@ -22,17 +17,43 @@ case "$os_version" in
     ;;
 esac
 
+# Php 7 
+__apt_key_uri dotdeb --uri https://www.dotdeb.org/dotdeb.gpg
+require="__apt_key_uri/dotdeb" __apt_source dotdeb --uri http://packages.dotdeb.org \
+                                                   --distribution jessie \
+                                                   --component all
+
+require="__apt_source/dotdeb" __apt_update_index
+
+require="__package/php7.0-fpm" __start_on_boot php7.0-fpm
+
 # Install packages
-for package in ${php} ${php}-gd ${php}-json ${php}-pgsql ${php}-curl \
-			   ${php}-intl ${php}-mcrypt ${php}-imagick \
-               postgresql nginx curl
-    do __package $package --state=present
+for package in php7.0-common php7.0-gd php7.0-json php7.0-pgsql php7.0-curl \
+			   php7.0-intl php7.0-mcrypt php7.0-imagick \
+               php7.0-zip php7.0-apcu php7.0-mbstring php7.0-xml php7.0-fpm 
+    do require="__apt_update_index" __package $package --state=present
 done
+
+
+
+__package postgresql --state=present
+__package curl       --state=present
+__package nginx      --state=present
 
 # Nginx
 require="__package/nginx" __file /etc/nginx/sites-enabled/nextcloud --owner www-data \
     --group www-data --mode 755 --source "$__type/files/nextcloud.nginx"
+require="__package/nginx" __start_on_boot nginx
 
 # Postgres
-require="__package/postgresql" __postgres_database nextcloud --owner nextcloud
-require="__package/postgresql" __postgres_role nextcloud --login --createdb
+db_pass=$(cat "$__object/parameter/db-pass")
+db_user=$(cat "$__object/parameter/db-user")
+db_name=$(cat "$__object/parameter/db-name")
+
+
+require="__package/postgresql" __postgres_role "${db_user}" --password "${db_pass}"\
+                                                            --login --createdb 
+                                                         
+require="__package/postgresql __postgres_role/${db_user}" __postgres_database "${db_name}"\
+                                                          --owner "${db_user}" --state present
+require="__package/postgresql" __start_on_boot postgresql
