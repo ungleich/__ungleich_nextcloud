@@ -1,4 +1,22 @@
 #!/bin/sh
+#
+# 2017 ungleich GmbH (cdist at ungleich.ch)
+#
+# This file is part of cdist.
+#
+# cdist is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# cdist is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with cdist. If not, see <http://www.gnu.org/licenses/>.
+#
 
 os=$(cat "$__global/explorer/os")
 if [ ! "$os" = "debian" ]
@@ -17,7 +35,25 @@ case "$os_version" in
     ;;
 esac
 
-# Php 7 
+db_pass=$(cat "$__object/parameter/db-pass")
+db_user=$(cat "$__object/parameter/db-user")
+db_name=$(cat "$__object/parameter/db-name")
+
+
+
+# Install packages
+for package in php7.0-common php7.0-gd php7.0-json php7.0-pgsql php7.0-curl \
+			   php7.0-intl php7.0-mcrypt php7.0-imagick \
+               php7.0-zip php7.0-apcu php7.0-mbstring php7.0-xml php7.0-fpm
+    do require="__apt_update_index" __package $package --state=present
+done
+
+__package postgresql --state=present
+__package nginx --state=present
+__package curl --state=present
+
+# Configure packages 
+## Php 7 
 __apt_key_uri dotdeb --uri https://www.dotdeb.org/dotdeb.gpg
 require="__apt_key_uri/dotdeb" __apt_source dotdeb --uri http://packages.dotdeb.org \
                                                    --distribution jessie \
@@ -25,35 +61,20 @@ require="__apt_key_uri/dotdeb" __apt_source dotdeb --uri http://packages.dotdeb.
 
 require="__apt_source/dotdeb" __apt_update_index
 
-require="__package/php7.0-fpm" __start_on_boot php7.0-fpm
 
-# Install packages
-for package in php7.0-common php7.0-gd php7.0-json php7.0-pgsql php7.0-curl \
-			   php7.0-intl php7.0-mcrypt php7.0-imagick \
-               php7.0-zip php7.0-apcu php7.0-mbstring php7.0-xml php7.0-fpm 
-    do require="__apt_update_index" __package $package --state=present
-done
-
-
-
-__package postgresql --state=present
-__package curl       --state=present
-__package nginx      --state=present
-
-# Nginx
+## Nginx
 require="__package/nginx" __file /etc/nginx/sites-enabled/nextcloud --owner www-data \
     --group www-data --mode 755 --source "$__type/files/nextcloud.nginx"
-require="__package/nginx" __start_on_boot nginx
 
-# Postgres
-db_pass=$(cat "$__object/parameter/db-pass")
-db_user=$(cat "$__object/parameter/db-user")
-db_name=$(cat "$__object/parameter/db-name")
-
-
+## Postgres
 require="__package/postgresql" __postgres_role "${db_user}" --password "${db_pass}"\
                                                             --login --createdb 
                                                          
 require="__package/postgresql __postgres_role/${db_user}" __postgres_database "${db_name}"\
                                                           --owner "${db_user}" --state present
+
+
+# Start on boot 
 require="__package/postgresql" __start_on_boot postgresql
+require="__package/nginx" __start_on_boot nginx
+require="__package/php7.0-fpm" __start_on_boot php7.0-fpm
