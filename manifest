@@ -61,6 +61,10 @@ require="__apt_key_uri/dotdeb" __apt_source dotdeb --uri http://packages.dotdeb.
 
 require="__apt_source/dotdeb" __apt_update_index
 
+require="__package/php7.0-fpm" __file /etc/php/7.0/fpm/pool.d/www.conf \
+    --owner root --group root --mode 644 --source "$__type/files/fpm.conf"
+
+
 
 ## Nginx
 require="__package/nginx" __file /etc/nginx/sites-enabled/nextcloud --owner www-data \
