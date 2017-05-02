@@ -23,6 +23,8 @@ db_user=$(cat "$__object/parameter/db-user")
 db_pass=$(cat "$__object/parameter/db-pass")
 admin_user=$(cat "$__object/parameter/admin-user")
 admin_pass=$(cat "$__object/parameter/admin-pass")
+domain=$(cat "$__object/parameter/domain")
+
 # TODO check shasum of tar ball 
 cat <<eof
 curl -s -L ${nextcloud_uri} -o /tmp/nextcloud.tar.bz2 
@@ -33,4 +35,5 @@ cd /var/www/nextcloud
 sudo -u www-data php occ maintenance:install --database \
 "pgsql" --database-name "$db_name"  --database-user "$db_user" --database-pass \
 "$db_pass" --admin-user "$admin_user" --admin-pass "$admin_pass"
+sudo -u www-data php occ config:system:set trusted_domains 2 --value="$domain" 
 eof
