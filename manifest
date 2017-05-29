@@ -44,12 +44,12 @@ db_name=$(cat "$__object/parameter/db-name")
 # Install packages
 for package in php7.0-common php7.0-gd php7.0-json php7.0-pgsql php7.0-curl \
 			   php7.0-intl php7.0-mcrypt php7.0-imagick \
-               php7.0-zip php7.0-apcu php7.0-mbstring php7.0-xml php7.0-fpm
+               php7.0-zip php7.0-apcu php7.0-mbstring php7.0-xml php7.0-fpm \
+               nginx
     do require="__apt_update_index" __package $package --state=present
 done
 
 __package postgresql --state=present
-__package nginx --state=present
 __package curl --state=present
 
 # Configure packages 
