@@ -24,7 +24,7 @@ db_pass=$(cat "$__object/parameter/db-pass")
 admin_user=$(cat "$__object/parameter/admin-user")
 admin_pass=$(cat "$__object/parameter/admin-pass")
 domain=$(cat "$__object/parameter/domain")
-INSTALL_STATE="$([ -d /var/www/nextcloud ] && cd /var/www/nextcloud && sudo -u www-data php occ status| grep -o true)"
+INSTALL_STATE="$([ -d /var/www/nextcloud ] && cd /var/www/nextcloud && sudo -u www-data php occ status| grep -o true)" 
 
 # TODO check shasum of tar ball 
 cat <<eof
