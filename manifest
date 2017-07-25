@@ -41,7 +41,34 @@ db_name=$(cat "$__object/parameter/db-name")
 domain="$(cat "$__object/parameter/domain")"
 dh="$(cat "$__object/parameter/dh")"
 
+case "$os" in
+    centos)
+        nginx_http=/etc/nginx/conf.d/http.conf
+        nginx_https=/etc/nginx/conf.d/https.conf
+        restart="systemctl restart nginx"
 
+    ;;
+    debian)
+        nginx_http=/etc/nginx/sites-enabled/default
+        nginx_https=/etc/nginx/sites-enabled/default-ssl
+        restart="systemctl restart nginx"
+    ;;
+    devuan)
+        nginx_http=/etc/nginx/sites-enabled/default
+        nginx_https=/etc/nginx/sites-enabled/default-ssl
+        restart="/etc/init.d/nginx restart"
+    ;;
+    *)  
+        echo "Unsupported OS: $os" >&2
+        exit 1
+    ;;
+esac
+
+if [ -f "$__object/parameter/custom-config-from-stdin" ]; then
+    custom_config="$__object/stdin"
+else
+    custom_config=""
+fi
 
 # Install packages
 for package in php7.0-common php7.0-gd php7.0-json php7.0-pgsql php7.0-curl \
@@ -55,7 +82,7 @@ __package postgresql --state=present
 __package curl --state=present
 
 # Configure packages 
-## Php 7 
+## PHP 7 
 __apt_key_uri dotdeb --uri https://www.dotdeb.org/dotdeb.gpg
 require="__apt_key_uri/dotdeb" __apt_source dotdeb --uri http://packages.dotdeb.org \
                                                    --distribution jessie \
@@ -68,9 +95,12 @@ require="__package/php7.0-fpm" __file /etc/php/7.0/fpm/pool.d/www.conf \
 
 
 
-## Nginx
+# Configure nginx
 #require="__package/nginx" __file /etc/nginx/sites-enabled/nextcloud --owner www-data \
 #    --group www-data --mode 755 --source "$__type/files/nextcloud.nginx"
+
+base_config="$__type/files/base_config/${os}.conf"
+require="__package/nginx" __file /etc/nginx/nginx.conf --source "$base_config" --mode 0644
 
 ################################################################################
 # create base / switch to type dir
@@ -78,74 +108,191 @@ require="__package/php7.0-fpm" __file /etc/php/7.0/fpm/pool.d/www.conf \
 mkdir "$__object/files"
 cd  "$__type/files"
 
-
 ################################################################################
 # SSL / HTTPs configuration
 #
 if [ -f "$__object/parameter/ssl" ]; then
-    ssl_base="$__type/files/ssl"
+    if [ ! -f "$__object/parameter/ssl-cert" ] || [ ! -f "$__object/parameter/ssl-key" ]  || [ ! -f "$__object/parameter/dh" ]; then
+            echo "Missing parameter" >&2
+        else
+            ssl_cert="$(cat "$__object/parameter/ssl-cert")"
+            ssl_key="$(cat "$__object/parameter/ssl-key")"
+    
+            # create symlink for SSL certificates
+            require="__package/nginx" __link /etc/nginx/ssl.crt \
+            --source "$ssl_cert" --type symbolic
 
-    # Select the ssl certificate + key
-    if [ -f "$__object/parameter/ssl-name" ]; then
-        ssl_name="$(cat "$__object/parameter/ssl-name")"
-    else
-        echo "Please select ssl certificate" >&2
-        exit 1
+            require="__package/nginx" __link /etc/nginx/ssl.key \
+            --source "$ssl_key" --type symbolic
+    
+            # create the https nginx config
+            require="__package/nginx" __file "$nginx_https"  --owner root \
+            --group root \
+            --mode 0644 --source - <<EOF
+#                                                                    
+# cdist maintained configuration - do not overwrite                  
+#        
+
+uptream php-handler {
+    server unix:/run/php/php7.0-fpm.sock;
+}
+
+server {
+    listen [::]:80;
+    server_name ${domain};
+    # Let's encrypt
+    location /.well-known {
+        root /var/www/nextcloud;
+    }
+
+    # enforce https
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen [::]:443 ssl;
+    server_name ${domian};
+    ssl_certificate         /etc/nginx/ssl.crt;
+    ssl_certificate_key     /etc/nginx/ssl.key;
+    ssl_dhparam             /etc/nginx/dhparam.pem;
+    
+    # OCSP
+    ssl_stapling on;
+    ssl_stapling_verify on;
+
+    # Chipers
+    ssl_protocols TLSv1.2 TLSv1.1 TLSv1;
+    ssl_ciphers EECDH+AESGCM:EDH+AESGCM:EECDH:EDH:!MD5:!RC4:!LOW:!MEDIUM:!CAMELLIA:!ECDSA:!DES:!DSS:!3DES:!NULL;
+    ssl_prefer_server_ciphers on;
+    ssl_ecdh_curve secp384r1;
+
+    # Add headers to serve security related headers
+    # Before enabling Strict-Transport-Security headers please read into this
+    # topic first.
+    add_header Strict-Transport-Security "max-age=15768000;
+    includeSubDomains; preload;";
+    add_header X-Content-Type-Options nosniff;
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-XSS-Protection "1; mode=block";
+    add_header X-Robots-Tag none;
+    add_header X-Download-Options noopen;
+    add_header X-Permitted-Cross-Domain-Policies none;
+
+    # Session resumption
+    ssl_session_timeout 10m;
+    ssl_session_cache off;
+    ssl_session_tickets on;
+    ssl_session_ticket_key /etc/nginx/nginx-ticketkey;
+
+    # Path to the root of your installation
+    root /var/www/nextcloud/;
+
+    location = /robots.txt {
+        allow all;
+        log_not_found off;
+        access_log off;
+    }
+
+    # The following 2 rules are only needed for the user_webfinger app.
+    # Uncomment it if you're planning to use this app.
+    #rewrite ^/.well-known/host-meta /public.php?service=host-meta last;
+    #rewrite ^/.well-known/host-meta.json /public.php?service=host-meta-json
+    # last;
+
+    location = /.well-known/carddav {
+      return 301 $scheme://$host/remote.php/dav;
+    }
+    location = /.well-known/caldav {
+      return 301 $scheme://$host/remote.php/dav;
+    }
+
+    # set max upload size
+    client_max_body_size 512M;
+    fastcgi_buffers 64 4K;
+
+    # Disable gzip to avoid the removal of the ETag header
+    gzip off;
+
+    # Uncomment if your server is build with the ngx_pagespeed module
+    # This module is currently not supported.
+    #pagespeed off;
+
+    location / {
+        rewrite ^ /index.php$uri;
+    }
+
+    location ~ ^/(?:build|tests|config|lib|3rdparty|templates|data)/ {
+        deny all;
+    }
+    location ~ ^/(?:\.|autotest|occ|issue|indie|db_|console) {
+        deny all;
+    }
+
+    location ~ ^/(?:index|remote|public|cron|core/ajax/update|status|ocs/v[12]|updater/.+|ocs-provider/.+|core/templates/40[34])\.php(?:$|/) {
+        fastcgi_split_path_info ^(.+\.php)(/.*)$;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param PATH_INFO $fastcgi_path_info;
+        fastcgi_param HTTPS on;
+        #Avoid sending the security headers twice
+        fastcgi_param modHeadersAvailable true;
+        fastcgi_param front_controller_active true;
+        fastcgi_pass php-handler;
+        fastcgi_intercept_errors on;
+        fastcgi_request_buffering off;
+    }
+
+    location ~ ^/(?:updater|ocs-provider)(?:$|/) {
+        try_files $uri/ =404;
+        index index.php;
+    }
+
+    # Adding the cache control header for js and css files
+    # Make sure it is BELOW the PHP block
+    location ~* \.(?:css|js|woff|svg|gif)$ {
+        try_files $uri /index.php$uri$is_args$args;
+        add_header Cache-Control "public, max-age=7200";
+        # Add headers to serve security related headers (It is intended to
+        # have those duplicated to the ones above)
+        # Before enabling Strict-Transport-Security headers please read into
+        # this topic first.
+        # add_header Strict-Transport-Security "max-age=15768000;
+        #  includeSubDomains; preload;";
+        add_header X-Content-Type-Options nosniff;
+        add_header X-Frame-Options "SAMEORIGIN";
+        add_header X-XSS-Protection "1; mode=block";
+        add_header X-Robots-Tag none;
+        add_header X-Download-Options noopen;
+        add_header X-Permitted-Cross-Domain-Policies none;
+        # Optional: Don't log access to assets
+        access_log off;
+    }
+
+    location ~* \.(?:png|html|ttf|ico|jpg|jpeg)$ {
+        try_files $uri /index.php$uri$is_args$args;
+        # Optional: Don't log access to other assets
+        access_log off;
+    }
+    
+    # Custom config
+    ${custom_config}
+
+}
+EOF
     fi
-    
-    
-    ssl_cert="/etc/ssl/certs/${ssl_name}.crt"
-    ssl_key="/etc/ssl/private/${ssl_name}.key"
+    #if [ ! -f "$__object/parameter/ssl-no-redirect" ]; then
+    #    if [ -f "$__object/parameter/ssl-custom-redirect" ]; then
+    #        ssl_redirect_host=$(cat "$__object/parameter/ssl-custom-redirect")
+    #    else
+    #        ssl_redirect_host='$host'
+    #    fi
 
-    # Copy SSL certificates
-    require="__package/nginx" __link /etc/nginx/ssl.crt \
-        --source "$ssl_cert" --type symbolic
-
-    require="__package/nginx" __link /etc/nginx/ssl.key \
-        --source "$ssl_key" --type symbolic
-
-    cat nginx-header nginx-header-https nginx-header-server_name nginx-header-generic $config_file $custom_config nginx-footer > "$__object/files/nginx-https"
-
-    require="__package/nginx" __file "$nginx_https" \
-        --source "$__object/files/nginx-https"
-
-# SSL with Let's Encrypt
-# This only added LE to the configuration file. You need a LE cdist type,too.
-elif [ -f "$__object/parameter/letsencrypt" ]; then
-    ssl_base="$__type/files/letsencrypt"
-
-    if [ -f "$__object/parameter/domain" ]; then
-        domain="$(cat "$__object/parameter/domain")"
-    else
-        echo "Please add a valid domain" >&2
-        exit 1
-    fi
-    
-    # Copy SSL certificates
-    require="__package/nginx" __link /etc/nginx/ssl.crt \
-        --source /etc/letsencrypt/live/"$domain"/fullchain.pem --type symbolic
-
-    require="__package/nginx" __link /etc/nginx/ssl.key \
-        --source /etc/letsencrypt/live/"$domain"/privkey.pem --type symbolic
-
-    require="__package/nginx" __link /etc/nginx/chain.pem \
-        --source /etc/letsencrypt/live/"$domain"/cert.pem --type symbolic
-
-    cat nginx-header nginx-header-https-letsencrypt > "$__object/files/nginx-https"
-    echo "    server_name= "$domain";" >> "$__object/files/nginx-https" 
-    cat  nginx-header-generic $config_file $custom_config nginx-footer >> "$__object/files/nginx-https"
-
-    # create random 48 bit file as ticketkey    
-    head -c 48 /dev/urandom  |  __file /etc/nginx/nginx-ticketkey --source -
-
-    # create Diffie-Hellman key and store it under "$__files/pemfiles"
-
-    require="__package/nginx" __ungleich_dhparam --keysize $dh --destination "$__files/pemfiles" "$__target_host"
-    require="__ungleich_dhparam/$__target_host" __file /etc/nginx/dhparam.pem --source "$__files/pemfiles/"$__target_host"_dhparam.pem"
-
-    require=""__package/nginx" __file "$nginx_https" \
-        --owner www-data --group www-data --mode 755 \
-        --source "$__object/files/nginx-https""
+    #    ssl_redirect_file="$__object/files/nginx-redirect-http-to-https"
+    #    echo "    rewrite ^ https://$ssl_redirect_host\$request_uri? permanent;" > "$ssl_redirect_file"
+    #    ssl_redirect_file_content=$(cat $ssl_redirect_file)
+    #fi
+#else
+#    ssl_redirect_file=""
 fi
 
 

@@ -17,6 +17,33 @@ case "$os_version" in
     ;;
 esac
 
+case "$os" in
+    centos)
+        restart="/etc/init.d/nginx reload"
+    ;;
+    debian)
+        case "$os_version" in
+            [1-7]*)
+                restart="/etc/init.d/nginx restart"
+            ;;
+            *)  
+                restart="systemctl restart nginx"
+            ;;
+        esac
+    ;;
+    devuan)
+        restart="/etc/init.d/nginx restart"
+    ;;
+    *)  
+        echo "Unsupported OS: $os" >&2
+        exit 1
+    ;;
+esac
+
+if grep -E -q "^(__file|__link)/etc/nginx" "$__messages_in"; then
+    echo $restart
+fi
+
 nextcloud_uri="$(cat "$__object/parameter/uri")-$(cat "$__object/parameter/version").tar.bz2"
 db_name=$(cat "$__object/parameter/db-name")
 db_user=$(cat "$__object/parameter/db-user")
@@ -27,19 +54,37 @@ domain=$(cat "$__object/parameter/domain")
 
 # TODO check shasum of tar ball 
 cat <<eof
-curl -s -L ${nextcloud_uri} -o /tmp/nextcloud.tar.bz2 
-tar -C /var/www -xvjf /tmp/nextcloud.tar.bz2 
-rm -f /tmp/nextcloud.tar.bz2 
-chown -R www-data:www-data /var/www/nextcloud 
-eof
-
-cat <<eof
 INSTALL_STATE="$([ -d /var/www/nextcloud ] && cd /var/www/nextcloud && sudo -u www-data php occ status| grep -o true)"
 if [ ! "$INSTALL_STATE" ] ; then
+    curl -s -L ${nextcloud_uri} -o /tmp/nextcloud.tar.bz2 
+    tar -C /var/www -xvjf /tmp/nextcloud.tar.bz2 
+    rm -f /tmp/nextcloud.tar.bz2 
+    chown -R www-data:www-data /var/www/nextcloud 
     cd /var/www/nextcloud
     sudo -u www-data php occ maintenance:install --database \
     "pgsql" --database-name "$db_name"  --database-user "$db_user" --database-pass \
     $db_pass" --admin-user "$admin_user" --admin-pass "$admin_pass"
     sudo -u www-data php occ config:system:set trusted_domains 2 --value="$domain"
+fi
+eof
+
+destination=/etc/nginx/
+
+# Create 48 bit random key for nginx
+if [ -f "$__object/parameter/ssl-cert" ] || [ -f "$__object/parameter/ssl-key" ] || [ -f "$__object/parameter/ssl"]; then
+cat <<eof
+    if [ ! -f "${destination}nginx-ticketkey" ]; then
+        echo "head -c 48 /dev/urandom > ${destination}nginx-ticketkey"
+    fi
+eof
+fi
+
+# Create the Diffie-Hellman key
+
+dh=$(cat "$__object/parameter/dh")
+
+cat <<eof
+if [ ! -f "${destination}dhparam.pem" ]; then
+    echo "openssl dhparam -outform PEM -out ${destination}/dhparam.pem $dh"
 fi
 eof

@@ -5,4 +5,5 @@ admin-user
 admin-pass
 uri
 version
-ssl-name
+ssl-cert
+ssl-key
