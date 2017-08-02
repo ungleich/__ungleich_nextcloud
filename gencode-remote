@@ -1,21 +1,13 @@
-#!/bin/sh
+#!/bin/sh +x
 
 os=$(cat "$__global/explorer/os")
-if [ ! "$os" = "debian" ]
-then
+os_version=$(cat "$__global/explorer/os_version")
+
+# remove this check, if there is support for othere OS
+if [ ! "$os" = "debian" ]; then
     echo "OS $os is currently not supported." >&2
     exit 1
 fi
-os_version=$(cat "$__global/explorer/os_version")
-case "$os_version" in
-    8*)
-        :
-    ;;
-    *)
-        echo "Unsupported version $os_version of $os." >&2
-        exit 1
-    ;;
-esac
 
 case "$os" in
     centos)
@@ -25,9 +17,16 @@ case "$os" in
         case "$os_version" in
             [1-7]*)
                 restart="/etc/init.d/nginx restart"
+                echo "Unsupported version $os_version of $os." >&2
+                exit 1
+            ;;
+            8*)
+                restart="systemctl restart nginx"
             ;;
             *)  
                 restart="systemctl restart nginx"
+                echo "Unsupported version $os_version of $os." >&2
+                exit 1
             ;;
         esac
     ;;
@@ -40,6 +39,7 @@ case "$os" in
     ;;
 esac
 
+# maybe we dont need this
 if grep -E -q "^(__file|__link)/etc/nginx" "$__messages_in"; then
     echo $restart
 fi
@@ -53,17 +53,17 @@ admin_pass=$(cat "$__object/parameter/admin-pass")
 domain=$(cat "$__object/parameter/domain")
 
 # TODO check shasum of tar ball 
+# INSTALL_STATE="$([ -d /var/www/nextcloud ] && cd /var/www/nextcloud && sudo -u www-data php occ status| grep -o true)"
+# if [ ! "\$INSTALL_STATE" ] || [ ! -z "\$INSTALL_STATE" ]; then
 cat <<eof
-INSTALL_STATE="$([ -d /var/www/nextcloud ] && cd /var/www/nextcloud && sudo -u www-data php occ status| grep -o true)"
-if [ ! "$INSTALL_STATE" ] ; then
+INSTALL_STATE=\$([ -d /var/www/nextcloud ] && cd /var/www/nextcloud && sudo -u www-data php occ status| grep -o true)
+if [ "\$INSTALL_STATE" != "true" ]; then
     curl -s -L ${nextcloud_uri} -o /tmp/nextcloud.tar.bz2 
     tar -C /var/www -xvjf /tmp/nextcloud.tar.bz2 
     rm -f /tmp/nextcloud.tar.bz2 
     chown -R www-data:www-data /var/www/nextcloud 
     cd /var/www/nextcloud
-    sudo -u www-data php occ maintenance:install --database \
-    "pgsql" --database-name "$db_name"  --database-user "$db_user" --database-pass \
-    $db_pass" --admin-user "$admin_user" --admin-pass "$admin_pass"
+    sudo -u www-data php occ maintenance:install --database "pgsql" --database-name "$db_name" --database-user "$db_user" --database-pass "$db_pass" --admin-user "$admin_user" --admin-pass "$admin_pass"
     sudo -u www-data php occ config:system:set trusted_domains 2 --value="$domain"
 fi
 eof
