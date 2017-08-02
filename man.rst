@@ -1,14 +1,16 @@
 cdist-type__ungleich_nextcloud(7)
 =======================================
-Application proxy via nginx
+This type installs Nextcloud.
 
 ungleich GmbH <cdist--@--ungleich.ch>
 
 
 DESCRIPTION
 -----------
-This type installs Nextcloud. We suggest to use the type 
+We suggest to use our type 
 __ungleich_nginx_app_proxy for the nginx configuration.
+Keep in mind, that you have to install the certificates with 
+another type or nginx doesn't start.
 
 
 REQUIRED PARAMETERS
