@@ -38,6 +38,10 @@ esac
 db_pass=$(cat "$__object/parameter/db-pass")
 db_user=$(cat "$__object/parameter/db-user")
 db_name=$(cat "$__object/parameter/db-name")
+db_name=$(cat "$__object/parameter/domain")
+
+# Hostname
+__hostname --name "$domain"
 
 # Install packages
 for package in php7.0-common php7.0-gd php7.0-json php7.0-pgsql php7.0-curl \
