@@ -38,10 +38,8 @@ esac
 db_pass=$(cat "$__object/parameter/db-pass")
 db_user=$(cat "$__object/parameter/db-user")
 db_name=$(cat "$__object/parameter/db-name")
-db_name=$(cat "$__object/parameter/domain")
 
-# Hostname
-__hostname --name "$domain"
+
 
 # Install packages
 for package in php7.0-common php7.0-gd php7.0-json php7.0-pgsql php7.0-curl \
@@ -55,7 +53,7 @@ __package postgresql --state=present
 __package curl --state=present
 
 # Configure packages 
-## PHP 7 
+## Php 7 
 __apt_key_uri dotdeb --uri https://www.dotdeb.org/dotdeb.gpg
 require="__apt_key_uri/dotdeb" __apt_source dotdeb --uri http://packages.dotdeb.org \
                                                    --distribution jessie \
@@ -66,12 +64,19 @@ require="__apt_source/dotdeb" __apt_update_index
 require="__package/php7.0-fpm" __file /etc/php/7.0/fpm/pool.d/www.conf \
     --owner root --group root --mode 644 --source "$__type/files/fpm.conf"
 
+
+
+## Nginx
+require="__package/nginx" __file /etc/nginx/sites-enabled/nextcloud --owner www-data \
+    --group www-data --mode 755 --source "$__type/files/nextcloud.nginx"
+
 ## Postgres
 require="__package/postgresql" __postgres_role "${db_user}" --password "${db_pass}"\
                                                             --login --createdb 
                                                          
 require="__package/postgresql __postgres_role/${db_user}" __postgres_database "${db_name}"\
                                                           --owner "${db_user}" --state present
+
 
 # Start on boot 
 require="__package/postgresql" __start_on_boot postgresql
