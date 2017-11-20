@@ -19,7 +19,7 @@
 #
 
 os=$(cat "$__global/explorer/os")
-if [ ! "$os" = "debian" ]
+if [ ! "$os" = "debian"  -a  ! "$os" = "devuan" ]
 then
     echo "OS $os is currently not supported." >&2
     exit 1
@@ -27,6 +27,9 @@ fi
 os_version=$(cat "$__global/explorer/os_version")
 case "$os_version" in
     8*)
+        :
+    ;;
+    jessie*)
         :
     ;;
     *)
@@ -38,7 +41,9 @@ esac
 db_pass=$(cat "$__object/parameter/db-pass")
 db_user=$(cat "$__object/parameter/db-user")
 db_name=$(cat "$__object/parameter/db-name")
-db_name=$(cat "$__object/parameter/domain")
+domain=$(cat "$__object/parameter/domain")
+
+
 
 # Hostname
 __hostname --name "$domain"
