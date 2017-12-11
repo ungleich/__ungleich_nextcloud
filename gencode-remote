@@ -1,15 +1,31 @@
 #!/bin/sh
 
 os=$(cat "$__global/explorer/os")
-if [ ! "$os" = "debian" ]
-then
-    echo "OS $os is currently not supported." >&2
-    exit 1
-fi
 os_version=$(cat "$__global/explorer/os_version")
-case "$os_version" in
-    8*)
-        :
+
+case "$os" in
+    centos)
+        restart="/etc/init.d/nginx reload"
+    ;;
+    debian)
+        case "$os_version" in
+            [1-7]*)
+                restart="/etc/init.d/nginx restart"
+                echo "Unsupported version $os_version of $os." >&2
+                exit 1
+            ;;
+            8*)
+                restart="systemctl restart nginx"
+            ;;
+            *)  
+                restart="systemctl restart nginx"
+                echo "Unsupported version $os_version of $os." >&2
+                exit 1
+            ;;
+        esac
+    ;;
+    devuan)
+        restart="/etc/init.d/nginx restart"
     ;;
     *)
         echo "Unsupported version $os_version of $os." >&2
@@ -26,14 +42,19 @@ admin_pass=$(cat "$__object/parameter/admin-pass")
 domain=$(cat "$__object/parameter/domain")
 
 # TODO check shasum of tar ball 
-cat <<eof
-curl -s -L ${nextcloud_uri} -o /tmp/nextcloud.tar.bz2 
-tar -C /var/www -xvjf /tmp/nextcloud.tar.bz2 
-rm -f /tmp/nextcloud.tar.bz2 
-chown -R www-data:www-data /var/www/nextcloud 
-cd /var/www/nextcloud
-sudo -u www-data php occ maintenance:install --database \
-"pgsql" --database-name "$db_name"  --database-user "$db_user" --database-pass \
-"$db_pass" --admin-user "$admin_user" --admin-pass "$admin_pass"
-sudo -u www-data php occ config:system:set trusted_domains 2 --value="$domain" 
+if [ -d /var/www/nextcloud -a \$(cd /var/www/nextcloud; sudo -u www-data php occ status | grep -o true) ]; then
+    INSTALL_STATE=true
+else
+    INSTALL_STATE=false
+fi
+echo \${INSTALL_STATE} > /tmp/install-state
+if [ "\$INSTALL_STATE" != "true" ]; then
+    curl -s -L ${nextcloud_uri} -o /tmp/nextcloud.tar.bz2 
+    tar -C /var/www -xvjf /tmp/nextcloud.tar.bz2 
+    rm -f /tmp/nextcloud.tar.bz2 
+    chown -R www-data:www-data /var/www/nextcloud 
+    cd /var/www/nextcloud
+    sudo -u www-data php occ maintenance:install --database "pgsql" --database-name "$db_name" --database-user "$db_user" --database-pass "$db_pass" --admin-user "$admin_user" --admin-pass "$admin_pass"
+    sudo -u www-data php occ config:system:set trusted_domains 2 --value="$domain"
+fi
 eof
