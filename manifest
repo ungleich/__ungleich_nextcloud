@@ -29,6 +29,9 @@ case "$os_version" in
     8*)
         :
     ;;
+    9*)
+        :
+    ;;
     jessie*)
         :
     ;;

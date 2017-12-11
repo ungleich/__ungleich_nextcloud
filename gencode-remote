@@ -17,6 +17,9 @@ case "$os" in
             8*)
                 restart="systemctl restart nginx"
             ;;
+            9*)
+                restart="systemctl restart nginx"
+            ;;
             *)  
                 restart="systemctl restart nginx"
                 echo "Unsupported version $os_version of $os." >&2
