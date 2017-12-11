@@ -17,6 +17,9 @@ case "$os" in
             8*)
                 restart="systemctl restart nginx"
             ;;
+            9*)
+                restart="systemctl restart nginx"
+            ;;
             *)  
                 restart="systemctl restart nginx"
                 echo "Unsupported version $os_version of $os." >&2
@@ -27,16 +30,11 @@ case "$os" in
     devuan)
         restart="/etc/init.d/nginx restart"
     ;;
-    *)  
-        echo "Unsupported OS: $os" >&2
+    *)
+        echo "Unsupported version $os_version of $os." >&2
         exit 1
     ;;
 esac
-
-# maybe we dont need this
-if grep -E -q "^(__file|__link)/etc/nginx" "$__messages_in"; then
-    echo $restart
-fi
 
 nextcloud_uri="$(cat "$__object/parameter/uri")-$(cat "$__object/parameter/version").tar.bz2"
 db_name=$(cat "$__object/parameter/db-name")
@@ -47,7 +45,6 @@ admin_pass=$(cat "$__object/parameter/admin-pass")
 domain=$(cat "$__object/parameter/domain")
 
 # TODO check shasum of tar ball 
-cat <<eof
 if [ -d /var/www/nextcloud -a \$(cd /var/www/nextcloud; sudo -u www-data php occ status | grep -o true) ]; then
     INSTALL_STATE=true
 else

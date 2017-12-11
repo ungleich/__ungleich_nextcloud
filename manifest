@@ -29,6 +29,9 @@ case "$os_version" in
     8*)
         :
     ;;
+    9*)
+        :
+    ;;
     jessie*)
         :
     ;;
@@ -45,8 +48,6 @@ domain=$(cat "$__object/parameter/domain")
 
 
 
-# Hostname
-__hostname --name "$domain"
 
 __apt_key_uri dotdeb --uri https://www.dotdeb.org/dotdeb.gpg
 require="__apt_key_uri/dotdeb" __apt_source dotdeb --uri http://packages.dotdeb.org \
@@ -78,12 +79,19 @@ __package curl --state=present
 require="__package/php7.0-fpm" __file /etc/php/7.0/fpm/pool.d/www.conf \
     --owner root --group root --mode 644 --source "$__type/files/fpm.conf"
 
+
+
+## Nginx
+require="__package/nginx" __file /etc/nginx/sites-enabled/nextcloud --owner www-data \
+    --group www-data --mode 755 --source "$__type/files/nextcloud.nginx"
+
 ## Postgres
 require="__package/postgresql" __postgres_role "${db_user}" --password "${db_pass}"\
                                                             --login --createdb 
                                                          
 require="__package/postgresql __postgres_role/${db_user}" __postgres_database "${db_name}"\
                                                           --owner "${db_user}" --state present
+
 
 # Start on boot 
 require="__package/postgresql" __start_on_boot postgresql
