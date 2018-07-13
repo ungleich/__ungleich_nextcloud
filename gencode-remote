@@ -45,13 +45,15 @@ admin_pass=$(cat "$__object/parameter/admin-pass")
 domain=$(cat "$__object/parameter/domain")
 
 # TODO check shasum of tar ball 
-if [ -d /var/www/nextcloud -a \$(cd /var/www/nextcloud; sudo -u www-data php occ status | grep -o true) ]; then
-    INSTALL_STATE=true
-else
-    INSTALL_STATE=false
-fi
-echo \${INSTALL_STATE} > /tmp/install-state
-if [ "\$INSTALL_STATE" != "true" ]; then
+# TODO: Make this Work!!
+#if [ -d /var/www/nextcloud -a \$(cd /var/www/nextcloud; sudo -u www-data php occ status | grep -o true) ]; then
+#    INSTALL_STATE=true
+#else
+#    INSTALL_STATE=false
+#fi
+#echo \${INSTALL_STATE} > /tmp/install-state
+#if [ "\$INSTALL_STATE" != "true" ]; then
+cat <<eof
     curl -s -L ${nextcloud_uri} -o /tmp/nextcloud.tar.bz2 
     tar -C /var/www -xvjf /tmp/nextcloud.tar.bz2 
     rm -f /tmp/nextcloud.tar.bz2 
@@ -59,5 +61,5 @@ if [ "\$INSTALL_STATE" != "true" ]; then
     cd /var/www/nextcloud
     sudo -u www-data php occ maintenance:install --database "pgsql" --database-name "$db_name" --database-user "$db_user" --database-pass "$db_pass" --admin-user "$admin_user" --admin-pass "$admin_pass"
     sudo -u www-data php occ config:system:set trusted_domains 2 --value="$domain"
-fi
 eof
+#fi

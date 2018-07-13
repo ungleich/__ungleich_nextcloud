@@ -27,12 +27,15 @@ fi
 os_version=$(cat "$__global/explorer/os_version")
 case "$os_version" in
     8*)
+        distribution="jessie"
         :
     ;;
     9*)
+        distribution="stretch"
         :
     ;;
     jessie*)
+        distribution="jessie"
         :
     ;;
     *)
@@ -51,15 +54,10 @@ domain=$(cat "$__object/parameter/domain")
 
 __apt_key_uri dotdeb --uri https://www.dotdeb.org/dotdeb.gpg
 require="__apt_key_uri/dotdeb" __apt_source dotdeb --uri http://packages.dotdeb.org \
-                                                   --distribution jessie \
+                                                   --distribution ${distribution} \
                                                    --component all
 
 require="__apt_source/dotdeb" __apt_update_index
-
-__apt_key_uri dotdeb --uri https://www.dotdeb.org/dotdeb.gpg
-require="__apt_key_uri/dotdeb" __apt_source dotdeb --uri http://packages.dotdeb.org \
-                                                   --distribution jessie \
-                                                   --component all
 
 # Install packages
 for package in php7.0-common php7.0-gd php7.0-json php7.0-pgsql php7.0-curl \
