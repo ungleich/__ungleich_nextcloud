@@ -46,7 +46,7 @@ domain=$(cat "$__object/parameter/domain")
 
 # TODO check shasum of tar ball 
 cat <<eof
-    if [ -d /var/www/nextcloud 2>/dev/null -a \$(cd /var/www/nextcloud 2>/dev/null; sudo -u www.data php occ status 2>/dev/null | grep -o true) ]; then
+    if [ -d /var/www/nextcloud 2>/dev/null -a \$(cd /var/www/nextcloud 2>/dev/null; sudo -u www-data php occ status 2>/dev/null | grep -o true) ]; then
         echo "Nextcloud already installed" >&2
     else
         echo "installing nextcloud" >&2
